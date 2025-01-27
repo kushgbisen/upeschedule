@@ -1,0 +1,62 @@
+name: Update UPES Timetable
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Runs every 6 hours
+  workflow_dispatch:        # Allows manual trigger
+
+jobs:
+  update-timetable:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright pyyaml
+          playwright install chromium
+
+      - name: Create credentials file
+        run: |
+          echo "username: ${{ secrets.UPES_USERNAME }}" > creds.yml
+          echo "password: ${{ secrets.UPES_PASSWORD }}" >> creds.yml
+
+      - name: Run timetable script
+        run: python upeschedule.py
+        continue-on-error: true
+
+      - name: Update Gist
+        if: success() && hashFiles('timetable.json') != ''
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GIST_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const timetable = fs.readFileSync('timetable.json', 'utf8');
+            
+            try {
+              await github.rest.gists.update({
+                gist_id: '${{ secrets.GIST_ID }}',
+                files: {
+                  'timetable.json': {
+                    content: timetable
+                  }
+                }
+              });
+              console.log('Timetable uploaded to Gist successfully!');
+            } catch (error) {
+              console.error('Error updating gist:', error);
+              process.exit(1);
+            }
+
+      - name: Cleanup credentials
+        if: always()
+        run: rm -f creds.yml
