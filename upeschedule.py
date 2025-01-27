@@ -2,8 +2,8 @@ from playwright.sync_api import sync_playwright
 
 def main():
     TEST_CREDS = {
-        "username": "kushagra",
-        "password": "secret"
+        "username": "test_user",
+        "password": "test_pass"
     }
 
     with sync_playwright() as p:
@@ -19,6 +19,13 @@ def main():
         
         # Click login button
         page.click('button[type="submit"]')
+        
+        try:
+            # Wait for dashboard to load
+            page.wait_for_selector('.student-dashboard', timeout=10000)
+            print("Login successful! Dashboard loaded.")
+        except:
+            print("Login failed or dashboard not found.")
         
         browser.close()
 
